@@ -5,10 +5,31 @@ import cloudconvert
 import pytest
 from mock.mock import call
 
-from flac_converter.main import main, convert_file_to_mp3, CloudConvertError
+from flac_converter.__main__ import main, convert_file_to_mp3, CloudConvertError, \
+    parse_args
 
 DATA_FOLDER = Path(__file__).parent.resolve().joinpath("data")
 FLAC_FILE_NAME = "sample4"
+
+
+def test_parse_args_no_parameters(capsys):
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args([])
+    captured = capsys.readouterr()
+    assert 2 == excinfo.value.code
+    assert "error: the following arguments are required: file_selector" in captured.err
+
+
+def test_parse_args_one_parameter():
+    assert "/my/PaTH/*.flac" == parse_args(["/my/PaTH/*.flac"]).file_selector
+
+
+def test_parse_args_too_many_parameters(capsys):
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args(["/my/PaTH/*.flac", "redundant"])
+    captured = capsys.readouterr()
+    assert 2 == excinfo.value.code
+    assert "error: unrecognized arguments: redundant" in captured.err
 
 
 @pytest.fixture(scope="module")
@@ -68,9 +89,9 @@ def test_main_use_sandbox(monkeypatch, mocker, sandbox_environ):
     monkeypatch.setenv('API_KEY', 'made_up')
     monkeypatch.setenv('USE_SANDBOX', sandbox_environ)
     mock_configure = mocker.MagicMock(name='configure')
-    mocker.patch('flac_converter.main.cloudconvert.configure', new=mock_configure)
+    mocker.patch('flac_converter.__main__.cloudconvert.configure', new=mock_configure)
     mock_glob = mocker.MagicMock(name='glob')
-    mocker.patch('flac_converter.main.glob.glob', new=mock_glob)
+    mocker.patch('flac_converter.__main__.glob.glob', new=mock_glob)
 
     main('/mnt/e/CarMusic/*.flac')
     mock_configure.assert_called_once_with(api_key='made_up', sandbox=True)
@@ -82,9 +103,9 @@ def test_main_use_production(monkeypatch, mocker, sandbox_environ):
     monkeypatch.setenv('API_KEY', 'made_up')
     monkeypatch.setenv('USE_SANDBOX', sandbox_environ)
     mock_configure = mocker.MagicMock(name='configure')
-    mocker.patch('flac_converter.main.cloudconvert.configure', new=mock_configure)
+    mocker.patch('flac_converter.__main__.cloudconvert.configure', new=mock_configure)
     mock_glob = mocker.MagicMock(name='glob')
-    mocker.patch('flac_converter.main.glob.glob', new=mock_glob)
+    mocker.patch('flac_converter.__main__.glob.glob', new=mock_glob)
 
     main('/mnt/e/CarMusic/*.flac')
     mock_configure.assert_called_once_with(api_key='made_up', sandbox=False)
@@ -94,7 +115,7 @@ def test_main_some_files_ignored(monkeypatch, mocker):
     # mocked dependencies
     monkeypatch.setenv('API_KEY', 'made_up')
     mock_configure = mocker.MagicMock(name='configure')
-    mocker.patch('flac_converter.main.cloudconvert.configure', new=mock_configure)
+    mocker.patch('flac_converter.__main__.cloudconvert.configure', new=mock_configure)
 
     all_flac_files = ['/mnt/e/CarMusic/Johnny Cash - The Man Comes Around.flac',
                       '/mnt/e/CarMusic/Johnny Cash - The Ways Of A Woman In Love.flac',
@@ -103,7 +124,7 @@ def test_main_some_files_ignored(monkeypatch, mocker):
                       '/mnt/e/CarMusic/Johnny Cash - Wanted Man.flac']
     mock_glob = mocker.MagicMock(name='glob')
     mock_glob.return_value = iter(all_flac_files)
-    mocker.patch('flac_converter.main.glob.glob', new=mock_glob)
+    mocker.patch('flac_converter.__main__.glob.glob', new=mock_glob)
 
     all_mp3_files = ['/mnt/e/CarMusic/Johnny Cash - The Man Comes Around.mp3',
                      '/mnt/e/CarMusic/Johnny Cash - The Ways Of A Woman In Love.mp3',
@@ -112,10 +133,10 @@ def test_main_some_files_ignored(monkeypatch, mocker):
                      '/mnt/e/CarMusic/Johnny Cash - Wanted Man.mp3']
     mock_isfile = mocker.MagicMock(name='isfile')
     mock_isfile.side_effect = [False, True, False, False, True]
-    mocker.patch('flac_converter.main.os.path.isfile', new=mock_isfile)
+    mocker.patch('flac_converter.__main__.os.path.isfile', new=mock_isfile)
 
     mock_convert_file_to_mp3 = mocker.MagicMock(name='convert_file_to_mp3')
-    mocker.patch('flac_converter.main.convert_file_to_mp3',
+    mocker.patch('flac_converter.__main__.convert_file_to_mp3',
                  new=mock_convert_file_to_mp3)
 
     # act

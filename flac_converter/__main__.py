@@ -1,6 +1,8 @@
+import argparse
 import glob
 import os
 import shutil
+import sys
 
 import cloudconvert
 
@@ -36,6 +38,7 @@ def wait_and_raise(task_id, operation):
 
 
 def convert_file_to_mp3(file):
+    print(f"Processing: {file}")
     job = cloudconvert.Job.create(payload={
         'tasks': {
             'upload-my-file': {
@@ -53,38 +56,48 @@ def convert_file_to_mp3(file):
         }
     })
 
-    print(f"uploading {file}, this can take a while")
+    print(f"    - uploading")
     upload_task_id = job['tasks'][0]['id']
     upload_task = cloudconvert.Task.find(id=upload_task_id)
     cloudconvert.Task.upload(file_name=file, task=upload_task)
     wait_and_raise(upload_task_id, "upload file")
 
-    print(f"waiting for {file} convert, this can take a while")
+    print(f"    - waiting for convert")
     convert_task_id = job['tasks'][1]['id']
     wait_and_raise(convert_task_id, "convert file")
 
-    print(f"waiting for {file} download, this can take a while")
+    print(f"    - waiting for download")
     exported_url_task_id = job['tasks'][2]['id']
     download = wait_and_raise(exported_url_task_id, "get download file link")
 
-    print(f"downloading {file}, this can take a while")
+    print(f"    - downloading")
     converted_file = download.get("result").get("files")[0]
     downloaded = cloudconvert.download(filename=converted_file['filename'],
                                        url=converted_file['url'])
 
     shutil.move(os.path.join(os.getcwd(), downloaded),
                 os.path.splitext(file)[0] + ".mp3")
+    print(f"Done with: {file}")
 
 
 def main(file_selector):
     sandbox = os.getenv("USE_SANDBOX", 'False').lower() in ('true', '1', 't')
     cloudconvert.configure(api_key=os.environ['API_KEY'], sandbox=sandbox)
 
+    print(f"Going over {file_selector}")
     for file in glob.glob(file_selector):
         # save credits - convert only the unique files
         if not os.path.isfile(os.path.splitext(file)[0] + ".mp3"):
             convert_file_to_mp3(file)
 
 
+def parse_args(arguments):
+    parser = argparse.ArgumentParser(description='Convert files into mp3')
+    parser.add_argument('file_selector', type=str, help='the file pattern to look for')
+    return parser.parse_args(arguments)
+
+
 if __name__ == '__main__':
-    main('/mnt/e/CarMusic/*.flac')
+    args = parse_args(sys.argv[1:])
+
+    main(args.file_selector)
