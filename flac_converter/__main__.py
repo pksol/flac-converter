@@ -85,10 +85,13 @@ def main(file_selector):
     cloudconvert.configure(api_key=os.environ['API_KEY'], sandbox=sandbox)
 
     print(f"Going over {file_selector}")
-    for file in glob.glob(file_selector):
-        # save credits - convert only the unique files
-        if not os.path.isfile(os.path.splitext(file)[0] + ".mp3"):
-            convert_file_to_mp3(file)
+    selected_files = glob.glob(file_selector)
+    # save credits - convert only the unconverted files
+    to_be_converted = [file for file in selected_files if
+                       not os.path.isfile(os.path.splitext(file)[0] + ".mp3")]
+    for i, file in enumerate(to_be_converted):
+        print(f"{i + 1} of {len(to_be_converted)}")
+        convert_file_to_mp3(file)
 
 
 def parse_args(arguments):
